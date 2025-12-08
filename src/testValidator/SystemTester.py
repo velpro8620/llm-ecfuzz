@@ -27,8 +27,8 @@ class SystemTester(Tester):
         self.preFindTime: float = ShowStats.fuzzerStartTime
         self.totalTime: float = 0.0 # total time for run time
         self.totalCount: int = 0 # it equals to the testcases' number
-        self.exceptionMap = {} # 
-        self.exceptionMapReason = {} # 
+        self.exceptionMap = {} #
+        self.exceptionMapReason = {} #
         self.valueMap = ConfAnalyzer.confItemValueMap
         self.logLocation = {
             "hbase": os.path.join(DATA_DIR,"app_sysTest/hbase-2.2.2-work/logs"),
@@ -50,7 +50,7 @@ class SystemTester(Tester):
         # Result.count -= 1
         # if self.project == "alluxio":
         #     sysChmod = "echo kb310 | sudo -S chmod -R 777 /home/hadoop/ecfuzz/data/app_sysTest/alluxio-2.1.0-work/underFSStorage"
-        #     process = subprocess.run(sysChmod, shell=True, stdout=PIPE, stderr=PIPE, universal_newlines=True) 
+        #     process = subprocess.run(sysChmod, shell=True, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         sysCmd = f"cd {Configuration.putConf['systest_shell_dir']} && {Configuration.putConf['systest_java']} {Configuration.putConf['systest_shell']}"
         self.logger.info(f">>>>[systest] {self.project} is undergoing system test validation...")
         sysStartTime = time.time()
@@ -82,19 +82,26 @@ class SystemTester(Tester):
             failType1Str = "Startup phase exception"
             failType2Str = "API request Exception"
             failType3Str = "Shutdown phase exception"
-            
+
             if failType1Str in Result.description:
                 Result.sysFailType = 1
                 ShowStats.totalSystemTestFailed_Type1 += 1
                 # modify confMutaionInfo
                 for confItem in testcase.confItemList:
                     if confItem.isMutated == True:
-                        ConfAnalyzer.confMutationInfo[confItem.name][1] += 1
+                        # [Fix] 增加安全检查，防止 RAG 生成的新参数导致 KeyError
+                        if confItem.name in ConfAnalyzer.confMutationInfo:
+                            ConfAnalyzer.confMutationInfo[confItem.name][1] += 1
+                        else:
+                            # 记录一下未知的参数，方便调试，但不崩溃
+                            # self.logger.warning(f"[SystemTester] Unknown config item found: {confItem.name}, skipping stats update.")
+                            pass
+                        
                         # # update excludeConf
                         # if confItem.name not in ConfAnalyzer.excludeConf:
                         #     num1, num2 = ConfAnalyzer.confMutationInfo[confItem.name][0], ConfAnalyzer.confMutationInfo[confItem.name][1]
                         #     if num2 >= 10 and (float(num2) / num1) > 0.75:
-                        #         ConfAnalyzer.excludeConf.append(confItem.name) 
+                        #         ConfAnalyzer.excludeConf.append(confItem.name)
             elif failType2Str in Result.description:
                 Result.sysFailType = 2
                 ShowStats.totalSystemTestFailed_Type2 += 1
@@ -115,10 +122,10 @@ class SystemTester(Tester):
                             if conf.name not in diffVal:
                                 diffVal[conf.name] = conf.value
                     if exp not in self.exceptionMapReason:
-                        self.exceptionMapReason[exp] = []          
+                        self.exceptionMapReason[exp] = []
                     if len(diffVal) != 0:
                         self.exceptionMapReason[exp].append(diffVal)
-            
+
             elif failType3Str in Result.description:
                 Result.sysFailType = 3
                 ShowStats.totalSystemTestFailed_Type3 += 1
@@ -126,14 +133,14 @@ class SystemTester(Tester):
                 self.logger.info(
                 f">>>>[systest] conf_file {testcase.filePath} system test failure is cannot be classified.")
                 Result.sysFailType = 4
-            ShowStats.totalSystemTestFailed = ShowStats.totalSystemTestFailed_Type1 + ShowStats.totalSystemTestFailed_Type2 + ShowStats.totalSystemTestFailed_Type3 
+            ShowStats.totalSystemTestFailed = ShowStats.totalSystemTestFailed_Type1 + ShowStats.totalSystemTestFailed_Type2 + ShowStats.totalSystemTestFailed_Type3
         else:
             ShowStats.lastNewFailSystemTest = sysEndTime - self.preFindTime
             Result.description = "System Testing Succeed."
         self.logger.info(f">>>>[systest] exceptionMap is : {self.exceptionMap}")
         self.logger.info(f">>>>[systest] exceptionmapreason is : {self.exceptionMapReason}")
         return Result
-    
+
     def dealWithExp(self, description:str) -> str:
         exceptionFilter = "[info_excetion]"
         res = []
@@ -154,12 +161,12 @@ class SystemTester(Tester):
         except Exception as e:
             self.logger.info(e)
         return res
-            
+
     def deleteDir(self, directory):
         if os.path.exists( directory ):
             if not os.access(directory, os.W_OK):
                 os.chmod(directory, stat.S_IWRITE)
-            shutil.rmtree(directory) 
+            shutil.rmtree(directory)
 
     def runTest(self, testcase: Testcase, stopSoon) -> TestResult:
         # if Configuration.fuzzerConf['project'] == 'hbase':
@@ -169,4 +176,3 @@ class SystemTester(Tester):
         self.replaceConfig(testcase)
         Result = self.runSystemTestUtils(testcase, logLoc, stopSoon)
         return Result
-    
