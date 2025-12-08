@@ -1,6 +1,6 @@
 import json
 from typing import List, Dict, Any
-from langchain.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 # 尝试导入 RAG 模块
@@ -58,7 +58,7 @@ class AnalysisAgent:
         base_url: str,
         model_name: str,
         temperature: float = 0.1,
-        max_tokens: int = 32768,
+        max_tokens: int = 8192,
         request_timeout: int = 120,
         use_rag: bool = True
     ):

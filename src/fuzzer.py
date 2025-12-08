@@ -30,6 +30,8 @@ from dataModel.Seed import Seed
 from dataModel.ConfItem import ConfItem
 # ================= [新增导入结束] =================
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 stopSoon = Queue()
 
 
@@ -373,5 +375,5 @@ class Fuzzer(object):
 
 
 if __name__ == "__main__":
-    fuzzer = Fuzzer() 
+    fuzzer = Fuzzer()
     fuzzer.run()
