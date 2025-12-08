@@ -40,7 +40,7 @@ class GenerateAgent(ChatOpenAI):
         self.vector_store = vector_store
 
     # [修复策略 1] 默认 num_seeds 从 10 降为 3，防止 Token 溢出导致 JSON 截断
-    def generate_seeds(self, dependencies: Union[Dict[str, Any], List[Dict[str, Any]]], num_seeds: int = 3) -> dict:
+    def generate_seeds(self, dependencies: Union[Dict[str, Any], List[Dict[str, Any]]], num_seeds: int = 1) -> dict:
         """
         根据依赖关系生成种子，支持 RAG 检索增强。
         """

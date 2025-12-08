@@ -45,7 +45,7 @@ class Fuzzer(object):
         Configuration.parseConfiguration(self.commandConf)
         self.fuzzerConf: Dict[str, str] = Configuration.fuzzerConf
         self.putConf: Dict[str, str] = Configuration.putConf
-        
+
 
         ShowStats.mutationStrategy = self.fuzzerConf['mutator'].split(".")[-1]
         # ShowStats.mutationStrategy = "SingleMutator"
@@ -71,7 +71,7 @@ class Fuzzer(object):
                 # 2. [RAG] 加载向量数据库
                 self.logger.info(">>>>[LLM Integration] Loading RAG vector store...")
                 vector_store = get_vectorstore() # 获取向量库实例
-                
+
                 if vector_store:
                     self.logger.info(">>>>[LLM Integration] RAG store loaded. Agent will use retrieval.")
                 else:
@@ -88,10 +88,10 @@ class Fuzzer(object):
                     'alluxio': 'alluxio-site.properties'
                 }
                 config_filename = project_mapping.get(current_project, 'hbase-default.xml')
-                
+
                 # 拼接完整路径 (ECFuzz-main/data/default_conf_file/...)
                 target_config_path = os.path.join(os.path.dirname(__file__), f"../data/default_conf_file/{config_filename}")
-                
+
                 if os.path.exists(target_config_path):
                     self.logger.info(f">>>>[LLM Integration] Target config file: {target_config_path}")
                     with open(target_config_path, "r", encoding="utf-8") as f:
@@ -100,15 +100,15 @@ class Fuzzer(object):
                     # 4. 实例化 Agent (注入 RAG vector_store)
                     # AnalysisAgent: 主要负责分析结构，通常不需要 RAG，但保持接口一致
                     analysis_agent = AnalysisAgent(
-                        api_key=api_key, 
-                        base_url=base_url, 
+                        api_key=api_key,
+                        base_url=base_url,
                         model_name=model_name
                     )
-                    
+
                     # GenerateAgent: 必须接收 vector_store 以启用 RAG 检索增强
                     generate_agent = GenerateAgent(
-                        api_key=api_key, 
-                        base_url=base_url, 
+                        api_key=api_key,
+                        base_url=base_url,
                         model_name=model_name,
                         vector_store=vector_store # <--- 传入向量库
                     )
@@ -116,11 +116,14 @@ class Fuzzer(object):
                     # 5. 执行 LLM 流程
                     self.logger.info(">>>>[LLM Integration] Analyzing dependencies...")
                     deps_result = analysis_agent.analyze_config_dependencies(config_content)
-                    
+
                     self.logger.info(">>>>[LLM Integration] Generating seeds with RAG...")
-                    # 生成 5 个种子 (数量可调)
-                    seeds_result = generate_agent.generate_seeds(deps_result, num_seeds=5)
                     
+                    # [关键修复] 将种子数量从 5 改为 1
+                    # HDFS 依赖过多，生成多个种子会导致 Token 溢出截断 JSON。
+                    # 生成 1 个覆盖所有依赖的种子即可，后续变异交由 Fuzzer 处理。
+                    seeds_result = generate_agent.generate_seeds(deps_result, num_seeds=1)
+
                     # 6. 将生成的 JSON 转为 ECFuzz 种子对象
                     generated_seeds_list = seeds_result.get("seeds", [])
                     self.logger.info(f">>>>[LLM Integration] Generated {len(generated_seeds_list)} seeds.")
@@ -130,14 +133,14 @@ class Fuzzer(object):
                         for param in seed_data.get("parameters", []):
                             p_name = param.get("name")
                             p_value = str(param.get("value"))
-                            
+
                             # 简单的类型推断，防止空类型
                             p_type = ConfAnalyzer.confItemTypeMap.get(p_name, "String")
                             conf_items.append(ConfItem(name=p_name, type=p_type, value=p_value))
-                        
+
                         if conf_items:
                             self.seedGenerator.addSeedToPool(Seed(confItems=conf_items))
-                    
+
                     self.logger.info(">>>>[LLM Integration] Custom seeds injected into pool.")
                 else:
                     self.logger.warning(f">>>>[LLM Integration] Config file not found: {target_config_path}")
@@ -172,15 +175,15 @@ class Fuzzer(object):
         time.sleep(1)
         exit(0)
         # process.kill()
-    
+
     def deleteDir(self, directory):
         if os.path.exists( directory ):
             if not os.access(directory, os.W_OK):
                 os.chmod(directory, stat.S_IWRITE)
-            shutil.rmtree(directory) 
-            
+            shutil.rmtree(directory)
+
     def getOpt(self) -> dict:
-        ''' project, seed_pool_selection_ratio, seed_gen_seq_ratio, data_viewer, data_viewer_env, 
+        ''' project, seed_pool_selection_ratio, seed_gen_seq_ratio, data_viewer, data_viewer_env,
         ctests_trim_sampling,ctests_trim_scale,skip_unit_test,force_system_testing_ratio
         host_ip,host_port,run_time(/h)
         '''
@@ -225,26 +228,7 @@ class Fuzzer(object):
             elif opt in ['--misconf_mode']:
                 res["misconf_mode"] = arg
         return res
-        # for opt, arg in opts:
-        #     if opt in ['--project']:
-        #         self.fuzzerConf['project'] = arg
-        #     elif opt in ['--seed_pool_selection_ratio']:
-        #         self.fuzzerConf['seed_pool_selection_ratio'] = arg
-        #     elif opt in ['--seed_gen_seq_ratio']:
-        #         self.fuzzerConf['seed_gen_seq_ratio'] = arg
-        #     elif opt in ['--data_viewer']:
-        #         self.fuzzerConf['data_viewer'] = arg
-        #     elif opt in ['--data_viewer_env']:
-        #         self.fuzzerConf['data_viewer_env'] = arg
-        #     elif opt in ['--ctests_trim_sampling']:
-        #         self.fuzzerConf['ctests_trim_sampling'] = arg
-        #     elif opt in ['--ctests_trim_scale']:
-        #         self.fuzzerConf['ctests_trim_scale'] = arg
-        #     elif opt in ['--skip_unit_test']:
-        #         self.fuzzerConf['skip_unit_test'] = arg
-        #     elif opt in ['--force_system_testing_ratio']:
-        #         self.fuzzerConf['force_system_testing_ratio'] = arg
-            
+
     def run(self):
         """
         The run function is the main function of the fuzzer. It is responsible for
