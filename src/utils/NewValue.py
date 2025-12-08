@@ -88,7 +88,7 @@ class NewValue(object):
         Returns:
             value (str): a new value.
         """
-        
+
         if(confType == "BOOL"):
             return self.genBool(value)
         if(confType == "PORT"):
@@ -144,7 +144,13 @@ class NewValue(object):
         return random.choice(PERMISSIONMASKS)
 
     def genInt(self, value) -> int:
-        tmp = int(value)
+        # [修复] 增加异常处理，防止遇到 ${variable} 时崩溃
+        try:
+            tmp = int(value)
+        except (ValueError, TypeError):
+            # 如果转换失败（例如遇到变量引用），默认使用 1 或者随机数
+            tmp = 1
+            
         res = [tmp + 1, tmp - 1, tmp >> 1, tmp << 1, 0, -tmp, -1, 99999999, -99999999, 2**32 - 1, -2**32]
 
         return random.choice(res)
@@ -155,7 +161,13 @@ class NewValue(object):
         res =[]
         if tmp:
             s = s[:-1]
-        val = float(s)
+        
+        # [修复] 增加异常处理，防止遇到 ${variable} 时崩溃
+        try:
+            val = float(s)
+        except (ValueError, TypeError):
+            val = 1.0
+
         res.append(val/2)
         res.append(val*2)
         res.append(-val)
@@ -180,6 +192,7 @@ class NewValue(object):
         for val in vals:
             rand = random.random()
             try:
+                # 这里的 int(val) 也可能失败，最好也加上 try-except，但原逻辑有 try
                 if(rand < 0.1):
                     res.append(int(val)<<1)
                 elif(rand < 0.2):
@@ -239,7 +252,7 @@ class NewValue(object):
         res = [f"{s}:{str(PORTS[0])}", f"{s}:{str(PORTS[1])}", f"{s}:20000", f"{s}:22", f"{s}:65599", f"745.657.25.3:{str(PORTS[3])}",f"{s}:{str(PORTS[4])}"]
 
         return random.choice(res)
-        
+
     def genClassName(self, value) -> str:
         return value
 
